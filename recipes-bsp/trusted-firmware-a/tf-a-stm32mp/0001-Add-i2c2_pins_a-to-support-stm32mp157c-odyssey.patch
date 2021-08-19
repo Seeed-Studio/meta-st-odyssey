@@ -1,0 +1,33 @@
+From 1bcf3173ef42ffd7b3467a35e9db038fffba8965 Mon Sep 17 00:00:00 2001
+From: cxn <1012353276@qq.com>
+Date: Thu, 29 Jul 2021 10:26:16 +0800
+Subject: [PATCH] 	-- Add i2c2_pins_a to support stm32mp157c-odyssey
+
+---
+ fdts/stm32mp15-pinctrl.dtsi | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+ mode change 100644 => 100755 fdts/stm32mp15-pinctrl.dtsi
+
+diff --git a/fdts/stm32mp15-pinctrl.dtsi b/fdts/stm32mp15-pinctrl.dtsi
+old mode 100644
+new mode 100755
+index 16c40cbff..44ffb7197
+--- a/fdts/stm32mp15-pinctrl.dtsi
++++ b/fdts/stm32mp15-pinctrl.dtsi
+@@ -346,6 +346,16 @@
+ 				 <STM32_PINMUX('A', 12, ANALOG)>; /* OTG_FS_DP */
+ 		};
+ 	};
++
++	i2c2_pins_a: i2c2-0 {
++		pins {
++			pinmux = <STM32_PINMUX('H', 4, AF4)>, /* I2C2_SCL */
++				 	<STM32_PINMUX('H', 5, AF4)>; /* I2C2_SDA */
++					bias-disable;
++					drive-open-drain;
++					slew-rate = <0>;
++				};
++		};
+ };
+ 
+ &pinctrl_z {

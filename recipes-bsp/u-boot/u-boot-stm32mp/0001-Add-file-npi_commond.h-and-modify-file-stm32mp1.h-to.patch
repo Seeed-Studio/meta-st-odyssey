@@ -1,0 +1,489 @@
+From a6bb820496f71581dfd9de4c4a1e09fa77ad80d5 Mon Sep 17 00:00:00 2001
+From: cxn <1012353276@qq.com>
+Date: Fri, 30 Jul 2021 10:55:16 +0800
+Subject: [PATCH] =?UTF-8?q?=09--=20Add=20file=20npi=5Fcommond.h=20,=20and?=
+ =?UTF-8?q?=20modify=20file=20stm32mp1.h=20=EF=BC=8C=20to=20support=20=20o?=
+ =?UTF-8?q?dyssey-npi=20boot=20modes?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ configs/stm32mp15_trusted_defconfig |   2 +-
+ include/configs/npi_common.h        | 360 ++++++++++++++++++++++++++++
+ include/configs/stm32mp1.h          |  55 ++++-
+ 3 files changed, 415 insertions(+), 2 deletions(-)
+ mode change 100644 => 100755 configs/stm32mp15_trusted_defconfig
+ create mode 100755 include/configs/npi_common.h
+ mode change 100644 => 100755 include/configs/stm32mp1.h
+
+diff --git a/configs/stm32mp15_trusted_defconfig b/configs/stm32mp15_trusted_defconfig
+old mode 100644
+new mode 100755
+index 5b4cfc4ca3..e6757c259f
+--- a/configs/stm32mp15_trusted_defconfig
++++ b/configs/stm32mp15_trusted_defconfig
+@@ -11,7 +11,7 @@ CONFIG_ENV_OFFSET_REDUND=0x4C0000
+ CONFIG_DEFAULT_DEVICE_TREE="stm32mp157c-ev1"
+ CONFIG_DISTRO_DEFAULTS=y
+ CONFIG_FIT=y
+-CONFIG_BOOTDELAY=1
++CONFIG_BOOTDELAY=3
+ CONFIG_BOOTCOMMAND="run bootcmd_stm32mp"
+ CONFIG_SYS_PROMPT="STM32MP> "
+ CONFIG_CMD_ADTIMG=y
+diff --git a/include/configs/npi_common.h b/include/configs/npi_common.h
+new file mode 100755
+index 0000000000..114630e8c3
+--- /dev/null
++++ b/include/configs/npi_common.h
+@@ -0,0 +1,360 @@
++/* SPDX-License-Identifier: GPL-2.0+ */
++/*
++ * npi_common.h
++ *
++ * Copyright (C) 2017 Texas Instruments Incorporated - http://www.ti.com
++ * Copyright (c) 2019 Seeed Studio
++ *
++ */
++
++#ifndef __CONFIG_NPI_COMMON_H__
++#define __CONFIG_NPI_COMMON_H__
++
++/**
++ * support stm32mp157c-odyssey-npi som  boot-up  macro
++ */
++#define NPI_BOOT_SUPPORT
++
++#define DEFAULT_MMC_ARGS \
++	"mmcdev=0\0" \
++	"mmcrootfstype=ext4 rootwait\0" \
++	"finduuid=part uuid ${devtype} ${bootpart} uuid\0" \
++	"args_mmc=run finduuid;setenv bootargs console=${console} " \
++		"root=PARTUUID=${uuid} ro " \
++		"rootfstype=${mmcrootfstype} " \
++		"${cmdline}\0" \
++	"args_mmc_old=setenv bootargs console=${console} " \
++		"${optargs} " \
++		"root=${oldroot} ro " \
++		"rootfstype=${mmcrootfstype} " \
++		"${cmdline}\0" \
++	"args_mmc_uuid=setenv bootargs console=${console} " \
++		"${optargs} " \
++		"root=UUID=${uuid} ro " \
++		"rootfstype=${mmcrootfstype} " \
++		"${cmdline}\0" \
++	"args_uenv_root=setenv bootargs console=${console} " \
++		"${optargs} " \
++		"root=${uenv_root} ro " \
++		"rootfstype=${mmcrootfstype} " \
++		"${cmdline}\0" \
++	"args_netinstall=setenv bootargs ${netinstall_bootargs} " \
++		"${optargs} " \
++		"root=/dev/ram rw " \
++		"${cmdline}\0" \
++	"script=boot.scr\0" \
++	"scriptfile=${script}\0" \
++	"loadbootscript=load ${devtype} ${bootpart} ${loadaddr} ${scriptfile};\0" \
++	"bootscript=echo Running bootscript from mmc${bootpart} ...; " \
++		"source ${loadaddr}\0" \
++	"bootenvfile=uEnv.txt\0" \
++	"bootenv=uEnv.txt\0" \
++	"importbootenv=echo Importing environment from ${devtype} ...; " \
++		"env import -t ${loadaddr} ${filesize}\0" \
++	"loadbootenv=load ${devtype} ${bootpart} ${loadaddr} ${bootenvfile}\0" \
++	"loadimage=load ${devtype} ${bootpart} ${loadaddr} ${bootdir}/${bootfile}\0" \
++	"loadrd=load ${devtype} ${bootpart} ${rdaddr} ${bootdir}/${rdfile}; setenv rdsize ${filesize}\0" \
++	"loadfdt=echo loading ${fdtdir}/${fdtfile} ...; load ${devtype} ${bootpart} ${fdtaddr} ${fdtdir}/${fdtfile}\0" \
++	"loadoverlay=echo uboot_overlays: loading ${uboot_overlay} ...; " \
++		"load ${devtype} ${rootpart} ${rdaddr} ${uboot_overlay}; " \
++		"fdt addr ${fdtaddr}; fdt resize ${fdt_buffer}; " \
++		"fdt apply ${rdaddr}; fdt resize ${fdt_buffer};\0" \
++	"virtualloadoverlay=if test -e ${devtype} ${rootpart} ${uboot_overlay}; then " \
++				"run loadoverlay;" \
++			"else " \
++				"echo uboot_overlays: unable to find [${devtype} ${rootpart} ${uboot_overlay}]...;" \
++			"fi;\0" \
++	"capeloadoverlay=if test -e ${devtype} ${rootpart} ${uboot_overlay}; then " \
++				"run loadoverlay;" \
++			"else " \
++				"echo uboot_overlays: unable to find [${devtype} ${rootpart} ${uboot_overlay}]...;" \
++			"fi;\0" \
++	"failumsboot=echo; echo FAILSAFE: U-Boot UMS (USB Mass Storage) enabled, media now available over the usb slave port ...; " \
++		"ums 0 ${devtype} 1;\0" \
++	"envboot=mmc dev ${mmcdev}; " \
++		"if mmc rescan; then " \
++			"echo SD/MMC found on device ${mmcdev};" \
++			"if run loadbootscript; then " \
++				"run bootscript;" \
++			"else " \
++				"if run loadbootenv; then " \
++					"echo Loaded env from ${bootenvfile};" \
++					"run importbootenv;" \
++				"fi;" \
++				"if test -n $uenvcmd; then " \
++					"echo Running uenvcmd ...;" \
++					"run uenvcmd;" \
++				"fi;" \
++			"fi;" \
++		"fi;\0" \
++	"mmcloados=run args_mmc; " \
++		"if test ${boot_fdt} = yes || test ${boot_fdt} = try; then " \
++			"if run loadfdt; then " \
++				"if test -n ${uname_r}; then " \
++					"${bootcmd} ${loadaddr} ${rdaddr}:${rdsize} ${fdtaddr}; " \
++				"else " \
++					"${bootcmd} ${loadaddr} - ${fdtaddr}; " \
++				"fi; " \
++			"else " \
++				"if test ${boot_fdt} = try; then " \
++					"${bootcmd}; " \
++				"else " \
++					"echo WARN: Cannot load the DT; " \
++				"fi; " \
++			"fi; " \
++		"else " \
++			"${bootcmd}; " \
++		"fi;\0" \
++	"mmcboot=mmc dev ${mmcdev}; " \
++		"setenv devnum ${mmcdev}; " \
++		"setenv devtype mmc; " \
++		"if mmc rescan; then " \
++			"echo SD/MMC found on device ${mmcdev};" \
++			"if run loadimage; then " \
++				"if test ${boot_fit} -eq 1; then " \
++					"run loadfit; " \
++				"else " \
++					"run mmcloados;" \
++				"fi;" \
++			"fi;" \
++		"fi;\0"
++
++
++#define NPI_BOOT \
++	"boot=${devtype} dev ${mmcdev}; " \
++		"echo npi-booting ....;"	\
++		"if ${devtype} rescan; then " \
++			"setenv bootpart ${mmcdev}:1; " \
++			"if test -e ${devtype} ${bootpart} /etc/fstab; then " \
++				"setenv mmcpart 1;" \
++			"fi; " \
++			"echo Checking for: /uEnv.txt ...;" \
++			"if test -e ${devtype} ${bootpart} /uEnv.txt; then " \
++				"if run loadbootenv; then " \
++					"echo Loaded environment from /uEnv.txt;" \
++					"run importbootenv;" \
++				"fi;" \
++				"echo Checking if uenvcmd is set ...;" \
++				"if test -n ${uenvcmd}; then " \
++					"echo Running uenvcmd ...;" \
++					"run uenvcmd; setenv uenvcmd;" \
++				"fi;" \
++				"echo Checking if client_ip is set ...;" \
++				"if test -n ${client_ip}; then " \
++					"if test -n ${dtb}; then " \
++						"setenv fdtfile ${dtb};" \
++						"echo using ${fdtfile} ...;" \
++					"fi;" \
++					"if test -n ${uname_r}; then " \
++						"echo Running nfsboot_uname_r ...;" \
++						"run nfsboot_uname_r;" \
++					"fi;" \
++					"echo Running nfsboot ...;" \
++					"run nfsboot;" \
++				"fi;" \
++			"fi; " \
++			"echo Checking for: /${script} ...;" \
++			"if test -e ${devtype} ${bootpart} /${script}; then " \
++				"setenv scriptfile ${script};" \
++				"run loadbootscript;" \
++				"echo Loaded script from ${scriptfile};" \
++				"run bootscript;" \
++			"fi; " \
++			"echo Checking for: /boot/${script} ...;" \
++			"if test -e ${devtype} ${bootpart} /boot/${script}; then " \
++				"setenv scriptfile /boot/${script};" \
++				"run loadbootscript;" \
++				"echo Loaded script from ${scriptfile};" \
++				"run bootscript;" \
++			"fi; " \
++			"echo Checking for: /boot/uEnv.txt ...;" \
++			"for i in 1 2 3 4 5 6 7 ; do " \
++				"setenv mmcpart ${i};" \
++				"setenv curpart ${mmcdev}:${mmcpart};" \
++				"if test -e ${devtype} ${curpart} /uEnv.txt; then " \
++					"setenv bootpart ${mmcdev}:${mmcpart};" \
++					"echo after find uEnv.txt bootpart=${bootpart} mmcdev=${mmcdev} mmcpart=${mmcpart};"	\
++					"load ${devtype} ${curpart} ${loadaddr} /uEnv.txt;" \
++					"env import -t ${loadaddr} ${filesize};" \
++					"echo Loaded environment from /uEnv.txt;" \
++					"if test -n ${uenvcmd}; then " \
++						"echo Running uenvcmd ...${uenvcmd};" \
++						"run uenvcmd; setenv uenvcmd;" \
++					"fi;" \
++				"fi;" \
++				"if test -e ${devtype} ${curpart} /bin/sh; then " \
++					"setenv rootpart ${mmcdev}:${mmcpart};" \
++					"if test -n ${dtb}; then " \
++						"echo debug: [dtb=${dtb}] ... ;" \
++						"setenv fdtfile ${dtb};" \
++						"echo Using: dtb=${fdtfile} ...;" \
++					"fi;" \
++					"echo Checking if uname_r is set in /uEnv.txt...;" \
++					"if test -n ${uname_r}; then " \
++						"setenv oldroot /dev/mmcblk${mmcdev}p${mmcpart};" \
++						"echo Running uname_boot ...;" \
++						"run uname_boot;" \
++					"fi;" \
++				"fi;" \
++			"done;" \
++		"fi;\0" \
++
++#define NPI_UNAME_BOOT \
++	"uname_boot="\
++		"echo npi-uname-booting ....bootpart=${bootpart};"	\
++		"setenv bootdir /boot; " \
++		"setenv bootfile vmlinuz-${uname_r}; " \
++		"setenv bootcmd bootz; " \
++		"if test -e ${devtype} ${bootpart} ${bootdir}/${bootfile}; then " \
++			"true;" \
++		"else " \
++			"setenv bootdir ;" \
++			"if test -e ${devtype} ${bootpart} ${bootdir}/${bootfile}; then " \
++				"echo can find ${bootdir}/${bootfile};"	\
++				"true;" \
++			"else " \
++				"setenv bootfile zImage; " \
++				"if test -e ${devtype} ${bootpart} ${bootdir}/${bootfile}; then " \
++					"echo can find ${bootdir}/${bootfile};"	\
++					"true;" \
++				"else " \
++					"setenv bootfile uImage; " \
++					"if test -e ${devtype} ${bootpart} ${bootdir}/${bootfile}; then " \
++						"echo can find ${bootdir}/${bootfile};"	\
++						"setenv bootcmd bootm; " \
++					"fi;" \
++				"fi;" \
++			"fi;" \
++		"fi;" \
++		"if test -e ${devtype} ${bootpart} ${bootdir}/${bootfile}; then " \
++			"echo loading ${bootdir}/${bootfile} ...; "\
++			"run loadimage;" \
++			"setenv fdtdir ${bootdir}/dtbs/${uname_r}; " \
++			"echo debug: [enable_uboot_overlays=${enable_uboot_overlays}] ... ;" \
++			"if test -n ${enable_uboot_overlays}; then " \
++				"echo debug: [uboot_base_dtb=${uboot_base_dtb}] ... ;" \
++				"if test -n ${uboot_base_dtb}; then " \
++					"echo uboot_overlays: [uboot_base_dtb=${uboot_base_dtb}] ... ;" \
++					"if test -e ${devtype} ${bootpart} ${fdtdir}/${uboot_base_dtb}; then " \
++						"setenv fdtfile ${uboot_base_dtb};" \
++						"echo uboot_overlays: Switching to: dtb=${fdtfile} ...;" \
++					"fi;" \
++				"fi;" \
++			"fi;" \
++			"if test -e ${devtype} ${bootpart} ${fdtdir}/${fdtfile}; then " \
++				"run loadfdt;" \
++			"else " \
++				"setenv fdtdir /usr/lib/linux-image-${uname_r}; " \
++				"if test -e ${devtype} ${bootpart} ${fdtdir}/${fdtfile}; then " \
++					"run loadfdt;" \
++				"else " \
++					"setenv fdtdir /boot/dtbs; " \
++					"if test -e ${devtype} ${bootpart} ${fdtdir}/${fdtfile}; then " \
++						"run loadfdt;" \
++					"else " \
++						"setenv fdtdir /boot; " \
++						"if test -e ${devtype} ${bootpart} ${fdtdir}/${fdtfile}; then " \
++							"run loadfdt;" \
++						"else " \
++							"if test -e ${devtype} ${bootpart} ${fdtfile}; then " \
++								"run loadfdt;" \
++							"else " \
++								"echo; echo unable to find [dtb=${fdtfile}] did you name it correctly? ...; " \
++								"run failumsboot;" \
++							"fi;" \
++						"fi;" \
++					"fi;" \
++				"fi;" \
++			"fi; " \
++			"if test -n ${enable_uboot_overlays}; then " \
++				"setenv fdt_buffer 0x60000;" \
++				"if test -n ${uboot_fdt_buffer}; then " \
++					"setenv fdt_buffer ${uboot_fdt_buffer};" \
++				"fi;" \
++				"echo uboot_overlays: [fdt_buffer=${fdt_buffer}] ... ;" \
++				"if test -n ${uboot_silicon}; then " \
++					"setenv uboot_overlay ${uboot_silicon}; " \
++					"run virtualloadoverlay;" \
++				"fi;" \
++				"if test -n ${uboot_model}; then " \
++					"setenv uboot_overlay ${uboot_model}; " \
++					"run virtualloadoverlay;" \
++				"fi;" \
++				"if test -n ${uboot_overlay_addr0}; then " \
++					"setenv uboot_overlay ${uboot_overlay_addr0}; " \
++					"run capeloadoverlay;" \
++				"fi;" \
++				"if test -n ${uboot_overlay_addr1}; then " \
++					"setenv uboot_overlay ${uboot_overlay_addr1}; " \
++					"run capeloadoverlay;" \
++				"fi;" \
++				"if test -n ${uboot_overlay_addr2}; then " \
++					"setenv uboot_overlay ${uboot_overlay_addr2}; " \
++					"run capeloadoverlay;" \
++				"fi;" \
++				"if test -n ${uboot_overlay_addr3}; then " \
++					"setenv uboot_overlay ${uboot_overlay_addr3}; " \
++					"run capeloadoverlay;" \
++				"fi;" \
++				"if test -n ${uboot_overlay_addr4}; then " \
++					"setenv uboot_overlay ${uboot_overlay_addr4}; " \
++					"run capeloadoverlay;" \
++				"fi;" \
++				"if test -n ${uboot_overlay_addr5}; then " \
++					"setenv uboot_overlay ${uboot_overlay_addr5}; " \
++					"run capeloadoverlay;" \
++				"fi;" \
++				"if test -n ${uboot_overlay_addr6}; then " \
++					"setenv uboot_overlay ${uboot_overlay_addr6}; " \
++					"run capeloadoverlay;" \
++				"fi;" \
++				"if test -n ${uboot_overlay_addr7}; then " \
++					"setenv uboot_overlay ${uboot_overlay_addr7}; " \
++					"run capeloadoverlay;" \
++				"fi;" \
++			"else " \
++				"echo uboot_overlays: add [enable_uboot_overlays=1] to /boot/uEnv.txt to enable...;" \
++			"fi;" \
++			"setenv rdfile initrd.img-${uname_r}; " \
++			"if test -e ${devtype} ${bootpart} ${bootdir}/${rdfile}; then " \
++				"echo loading ${bootdir}/${rdfile} ...; "\
++				"run loadrd;" \
++				"if test -n ${netinstall_enable}; then " \
++					"run args_netinstall; run message;" \
++					"echo debug: [${bootargs}] ... ;" \
++					"echo debug: [${bootcmd} ${loadaddr} ${rdaddr}:${rdsize} ${fdtaddr}] ... ;" \
++					"${bootcmd} ${loadaddr} ${rdaddr}:${rdsize} ${fdtaddr}; " \
++				"fi;" \
++				"if test -n ${uenv_root}; then " \
++					"run args_uenv_root;" \
++					"echo debug: [${bootargs}] ... ;" \
++					"echo debug: [${bootcmd} ${loadaddr} ${rdaddr}:${rdsize} ${fdtaddr}] ... ;" \
++					"${bootcmd} ${loadaddr} ${rdaddr}:${rdsize} ${fdtaddr}; " \
++				"fi;" \
++				"if test -n ${uuid}; then " \
++					"run args_mmc_uuid;" \
++					"echo debug: [${bootargs}] ... ;" \
++					"echo debug: [${bootcmd} ${loadaddr} ${rdaddr}:${rdsize} ${fdtaddr}] ... ;" \
++					"${bootcmd} ${loadaddr} ${rdaddr}:${rdsize} ${fdtaddr}; " \
++				"fi;" \
++				"run args_mmc_old;" \
++				"echo debug: [${bootargs}] ... ;" \
++				"echo debug: [${bootcmd} ${loadaddr} ${rdaddr}:${rdsize} ${fdtaddr}] ... ;" \
++				"${bootcmd} ${loadaddr} ${rdaddr}:${rdsize} ${fdtaddr}; " \
++			"else " \
++				"if test -n ${uenv_root}; then " \
++					"run args_uenv_root;" \
++					"echo debug: [${bootargs}] ... ;" \
++					"echo debug: [${bootcmd} ${loadaddr} - ${fdtaddr}] ... ;" \
++					"${bootcmd} ${loadaddr} - ${fdtaddr}; " \
++				"fi;" \
++				"run args_mmc_old;" \
++				"echo debug: [${bootargs}] ... ;" \
++				"echo debug: [${bootcmd} ${loadaddr} - ${fdtaddr}] ... ;" \
++				"${bootcmd} ${loadaddr} - ${fdtaddr}; " \
++			"fi;" \
++		"else " \
++			"echo debug: file missing ${devtype} ${bootpart} ${bootdir}/${bootfile} zImage vmlinuz-${uname_r};" \
++		"fi;\0" \
++
++#endif//__CONFIG_NPI_COMMON_H__
+diff --git a/include/configs/stm32mp1.h b/include/configs/stm32mp1.h
+old mode 100644
+new mode 100755
+index 32d0723d62..77fb8d58d1
+--- a/include/configs/stm32mp1.h
++++ b/include/configs/stm32mp1.h
+@@ -9,6 +9,7 @@
+ #define __CONFIG_H
+ #include <linux/sizes.h>
+ #include <asm/arch/stm32.h>
++#include "npi_common.h"
+ 
+ #ifndef CONFIG_TFABOOT
+ /* PSCI support */
+@@ -110,6 +111,46 @@
+ #define BOOT_TARGET_UBIFS(func)
+ #endif
+ 
++
++#ifdef	NPI_BOOT_SUPPORT	/* NPI_BOOT_SUPPORT */
++
++#define BOOTENV_DEV_LEGACY_MMC(devtypeu, devtypel, instance) \
++	"bootcmd_" #devtypel #instance "=" \
++	"setenv devtype mmc; " \
++	"setenv mmcdev " #instance"; "\
++	"setenv bootpart " #instance":1 ; "\
++	"run boot\0"
++
++#define BOOTENV_DEV_NAME_LEGACY_MMC(devtypeu, devtypel, instance) \
++	#devtypel #instance " "
++
++#define BOOTENV_DEV_NAND(devtypeu, devtypel, instance) \
++	"bootcmd_" #devtypel #instance "=" \
++	"nand device " #instance "; " \
++	"run nandboot\0"
++
++#define BOOTENV_DEV_NAME_NAND(devtypeu, devtypel, instance) \
++	#devtypel #instance " "
++
++#define BOOT_TARGET_LEGACY_MMC0(func)  func(LEGACY_MMC,legacy_mmc,0)
++#define BOOT_TARGET_LEGACY_MMC1(func)  func(LEGACY_MMC,legacy_mmc,1)
++
++
++#define BOOT_TARGET_DEVICES(func)	\
++	BOOT_TARGET_MMC0(func)		\
++	BOOT_TARGET_LEGACY_MMC0(func)	\
++	BOOT_TARGET_MMC1(func)		\
++	BOOT_TARGET_LEGACY_MMC1(func)	\
++	BOOT_TARGET_UBIFS(func)		\
++	BOOT_TARGET_MMC2(func)		\
++	BOOT_TARGET_PXE(func)
++
++#define STM32MP_BOOTCMD "bootcmd_stm32mp=" \
++	"echo \"Boot over ${boot_device}${boot_instance}!\";" \
++	"run distro_bootcmd;" \
++
++#else	/* NPI_BOOT_SUPPORT */
++
+ #define BOOT_TARGET_DEVICES(func)	\
+ 	BOOT_TARGET_MMC1(func)		\
+ 	BOOT_TARGET_UBIFS(func)		\
+@@ -140,6 +181,10 @@
+ 		"run distro_bootcmd;" \
+ 	"fi;\0"
+ 
++#endif	/* NPI_BOOT_SUPPORT */
++
++
++
+ #include <config_distro_bootcmd.h>
+ 
+ /*
+@@ -158,7 +203,15 @@
+ 	"env_check=if env info -p -d -q; then env save; fi\0" \
+ 	STM32MP_BOOTCMD \
+ 	BOOTENV \
+-	"boot_net_usb_start=true\0"
++	"boot_net_usb_start=true\0" \
++	"fdtfile=undefined\0" \
++	"loadaddr=0xC2000000\0" \
++	"fdtaddr=0xC4000000\0" \
++	"rdaddr=0xC4400000\0" \
++	"console=ttySTM0,115200\0" \
++	DEFAULT_MMC_ARGS \
++	NPI_BOOT \
++	NPI_UNAME_BOOT
+ 
+ #endif /* ifndef CONFIG_SPL_BUILD */
+ #endif /* ifdef CONFIG_DISTRO_DEFAULTS*/

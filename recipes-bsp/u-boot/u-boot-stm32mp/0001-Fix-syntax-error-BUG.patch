@@ -1,0 +1,22 @@
+From 1203de15423a8bdfc92420ca4c77a2b3ca82acfe Mon Sep 17 00:00:00 2001
+From: cxn <1012353276@qq.com>
+Date: Fri, 30 Jul 2021 17:17:51 +0800
+Subject: [PATCH] 	-- Fix syntax error BUG
+
+---
+ include/configs/stm32mp1.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/configs/stm32mp1.h b/include/configs/stm32mp1.h
+index 77fb8d58d1..86b9355fb4 100755
+--- a/include/configs/stm32mp1.h
++++ b/include/configs/stm32mp1.h
+@@ -147,7 +147,7 @@
+ 
+ #define STM32MP_BOOTCMD "bootcmd_stm32mp=" \
+ 	"echo \"Boot over ${boot_device}${boot_instance}!\";" \
+-	"run distro_bootcmd;" \
++	"run distro_bootcmd\0" \
+ 
+ #else	/* NPI_BOOT_SUPPORT */
+ 

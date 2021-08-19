@@ -1,0 +1,38 @@
+From 1c1e14154c5c51c2c5bf5eccb231ae50d814024b Mon Sep 17 00:00:00 2001
+From: cxn <1012353276@qq.com>
+Date: Fri, 30 Jul 2021 16:12:45 +0800
+Subject: [PATCH] 	-- modify _deconfig file CONFIG_ENV_SIZE = 0x4000 ,so
+ that support NPI_BOOT
+
+---
+ configs/stm32mp15_basic_defconfig   | 1 +
+ configs/stm32mp15_trusted_defconfig | 1 +
+ 2 files changed, 2 insertions(+)
+ mode change 100644 => 100755 configs/stm32mp15_basic_defconfig
+
+diff --git a/configs/stm32mp15_basic_defconfig b/configs/stm32mp15_basic_defconfig
+old mode 100644
+new mode 100755
+index c08d06474b..616f81bc07
+--- a/configs/stm32mp15_basic_defconfig
++++ b/configs/stm32mp15_basic_defconfig
+@@ -1,6 +1,7 @@
+ CONFIG_ARM=y
+ CONFIG_ARCH_STM32MP=y
+ CONFIG_SYS_MALLOC_F_LEN=0x3000
++CONFIG_ENV_SIZE=0x4000
+ CONFIG_ENV_OFFSET=0x280000
+ CONFIG_ENV_SECT_SIZE=0x40000
+ CONFIG_SYS_SPI_U_BOOT_OFFS=0x80000
+diff --git a/configs/stm32mp15_trusted_defconfig b/configs/stm32mp15_trusted_defconfig
+index e6757c259f..c087457d8b 100755
+--- a/configs/stm32mp15_trusted_defconfig
++++ b/configs/stm32mp15_trusted_defconfig
+@@ -2,6 +2,7 @@ CONFIG_ARM=y
+ CONFIG_ARCH_STM32MP=y
+ CONFIG_TFABOOT=y
+ CONFIG_SYS_MALLOC_F_LEN=0x3000
++CONFIG_ENV_SIZE=0x4000
+ CONFIG_ENV_OFFSET=0x480000
+ CONFIG_ENV_SECT_SIZE=0x40000
+ CONFIG_TARGET_ST_STM32MP15x=y

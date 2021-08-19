@@ -1,0 +1,24 @@
+From 71578c72bbd2bd1c392acc19fa6ffd0874e58895 Mon Sep 17 00:00:00 2001
+From: chenxiaonian <1012353276@qq.com>
+Date: Wed, 18 Aug 2021 15:23:30 +0800
+Subject: [PATCH] 	-- Modify dts to support etnernet
+
+---
+ arch/arm/dts/stm32mp157c-odyssey.dts | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/dts/stm32mp157c-odyssey.dts b/arch/arm/dts/stm32mp157c-odyssey.dts
+index 0e725498dd..d3c605be8c 100644
+--- a/arch/arm/dts/stm32mp157c-odyssey.dts
++++ b/arch/arm/dts/stm32mp157c-odyssey.dts
+@@ -80,8 +80,8 @@
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 		compatible = "snps,dwmac-mdio";
+-		phy0: ethernet-phy@0 {
+-			reg = <0>;
++		phy0: ethernet-phy@7 {
++			reg = <7>;
+ 		};
+ 	};
+ };

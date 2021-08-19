@@ -1,0 +1,26 @@
+From 2a43347249ee1506c9476fd2e351e7f019e1c202 Mon Sep 17 00:00:00 2001
+From: cxn <1012353276@qq.com>
+Date: Fri, 30 Jul 2021 18:37:54 +0800
+Subject: [PATCH] 	-- Modify .dts file ,so that make the kernel run
+ normally
+
+---
+ arch/arm/boot/dts/stm32mp157c-odyssey.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+ mode change 100644 => 100755 arch/arm/boot/dts/stm32mp157c-odyssey.dts
+
+diff --git a/arch/arm/boot/dts/stm32mp157c-odyssey.dts b/arch/arm/boot/dts/stm32mp157c-odyssey.dts
+old mode 100644
+new mode 100755
+index a7ffec8f1..be1dd5e9e
+--- a/arch/arm/boot/dts/stm32mp157c-odyssey.dts
++++ b/arch/arm/boot/dts/stm32mp157c-odyssey.dts
+@@ -64,7 +64,7 @@
+ 	pinctrl-0 = <&sdmmc1_b4_pins_a>;
+ 	pinctrl-1 = <&sdmmc1_b4_od_pins_a>;
+ 	pinctrl-2 = <&sdmmc1_b4_sleep_pins_a>;
+-	cd-gpios = <&gpiob 7 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++	cd-gpios = <&gpioi 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+ 	disable-wp;
+ 	st,neg-edge;
+ 	bus-width = <4>;
