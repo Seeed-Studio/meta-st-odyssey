@@ -1,0 +1,64 @@
+diff --git a/arch/arm/boot/dts/stm32mp157c-odyssey.dts b/arch/arm/boot/dts/stm32mp157c-odyssey.dts
+index 03bf6c156..87368f605 100755
+--- a/arch/arm/boot/dts/stm32mp157c-odyssey.dts
++++ b/arch/arm/boot/dts/stm32mp157c-odyssey.dts
+@@ -26,55 +26,24 @@ chosen {
+ };
+ 
+ &ethernet0 {
+-	status = "okay";
++	pinctrl-names = "default", "sleep";
+ 	pinctrl-0 = <&ethernet0_rgmii_pins_a>;
+ 	pinctrl-1 = <&ethernet0_rgmii_sleep_pins_a>;
+-	pinctrl-names = "default", "sleep";
+ 	phy-mode = "rgmii-id";
+-	max-speed = <1000>;
+ 	phy-handle = <&phy0>;
+-	assigned-clocks = <&rcc ETHCK_K>, <&rcc PLL4_P>;
+-	assigned-clock-parents = <&rcc PLL4_P>;
+-	assigned-clock-rates = <125000000>; /* Clock PLL4 to 750Mhz in ATF/U-Boot */
+-	phy-reset-gpios = <&gpiog 0 GPIO_ACTIVE_LOW>;
++	status = "okay";
+ 	st,eth-clk-sel;
+ 
+ 	mdio0 {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 		compatible = "snps,dwmac-mdio";
++		reset-active-low;
+ 
+ 		phy0: ethernet-phy@7 { /* KSZ9031RN */
+ 			reg = <7>;
+ 
+-			/*
+-			 * These skews assume the STM32MP1 has no internal delay.
+-			 *
+-			 * All skews are offset since hardware skew values for the ksz9031
+-			 * range from a negative skew to a positive skew.
+-			 * See the micrel-ksz90x1.txt Documentation file for details.
+-			 */
+-			/* REG 0x0008, 5 bits per skew */
+-			txc-skew-ps  = <1800>;/*  900ps */
+-			rxc-skew-ps  = <1320>;/*  420ps */
+-
+-			/* REG 0x0004, 4 bits per skew */
+-			txen-skew-ps = <420>;  /*   0ps */
+-			rxdv-skew-ps = <420>; /*    0ps */
+-
+-			/* REG 0x0005, 4 bits per skew */
+-			rxd0-skew-ps = <720>; /*  300ps */
+-			rxd1-skew-ps = <780>; /*  360ps */
+-			rxd2-skew-ps = <840>; /*  420ps */
+-			rxd3-skew-ps = <900>; /*  480ps */
+-
+-			/* REG 0x0006, 4 bits per skew */
+-			txd0-skew-ps = <0>;   /* -420ps */
+-			txd1-skew-ps = <60>;  /* -360ps */
+-			txd2-skew-ps = <120>; /* -300ps */
+-			txd3-skew-ps = <180>; /* -240ps */
+-
+-			micrel,force-master;
++			reset-gpios = <&gpiog 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+ 		};
+ 	};
+ };

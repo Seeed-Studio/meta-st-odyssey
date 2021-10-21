@@ -1,0 +1,228 @@
+diff --git a/arch/arm/boot/dts/stm32mp157c-odyssey-som.dtsi b/arch/arm/boot/dts/stm32mp157c-odyssey-som.dtsi
+old mode 100644
+new mode 100755
+index 6cf49a0a9..4d3c844dd
+--- a/arch/arm/boot/dts/stm32mp157c-odyssey-som.dtsi
++++ b/arch/arm/boot/dts/stm32mp157c-odyssey-som.dtsi
+@@ -77,6 +77,41 @@ led-blue {
+ 			gpios = <&gpiog 3 GPIO_ACTIVE_HIGH>;
+ 			linux,default-trigger = "heartbeat";
+ 		};
++
++		/* enable stmps2252 usb power switch */
++		usben1 {
++			label = "usb-en1";
++			gpios = <&gpioh  13  GPIO_ACTIVE_HIGH>;
++			linux,default-trigger = "usb-en1";
++			default-state = "on";
++		};
++
++		usben2 {
++			label = "usb-en2";
++			gpios = <&gpiof  8  GPIO_ACTIVE_HIGH>;
++			linux,default-trigger = "usb-en2";
++			default-state = "on";
++		};
++
++	};
++
++	usb_phy_tuning: usb-phy-tuning {
++		st,hs-dc-level = <2>;
++		st,fs-rftime-tuning;
++		st,hs-rftime-reduction;
++		st,hs-current-trim = <15>;
++		st,hs-impedance-trim = <1>;
++		st,squelch-level = <3>;
++		st,hs-rx-offset = <2>;
++		st,no-lsfs-sc;
++	};
++
++	vin: vin {
++		compatible = "regulator-fixed";
++		regulator-name = "vin";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		regulator-always-on;
+ 	};
+ };
+ 
+@@ -98,21 +133,31 @@ &i2c2 {
+ 	pmic: stpmic@33 {
+ 		compatible = "st,stpmic1";
+ 		reg = <0x33>;
+-		interrupts-extended = <&gpioa 0 IRQ_TYPE_EDGE_FALLING>;
++		interrupts-extended = <&exti_pwr 55 IRQ_TYPE_EDGE_FALLING>;
+ 		interrupt-controller;
+ 		#interrupt-cells = <2>;
++		status = "okay";
+ 
+ 		regulators {
+ 			compatible = "st,stpmic1-regulators";
++			buck1-supply = <&vin>;
++			buck2-supply = <&vin>;
++			buck3-supply = <&vin>;
++			buck4-supply = <&vin>;
+ 			ldo1-supply = <&v3v3>;
++			ldo2-supply = <&vin>;
+ 			ldo3-supply = <&vdd_ddr>;
++			ldo4-supply = <&vin>;
++			ldo5-supply = <&vin>;
+ 			ldo6-supply = <&v3v3>;
++			vref_ddr-supply = <&vin>;
++			boost-supply = <&vin>;
+ 			pwr_sw1-supply = <&bst_out>;
+ 			pwr_sw2-supply = <&bst_out>;
+ 
+ 			vddcore: buck1 {
+ 				regulator-name = "vddcore";
+-				regulator-min-microvolt = <800000>;
++				regulator-min-microvolt = <1200000>;
+ 				regulator-max-microvolt = <1350000>;
+ 				regulator-always-on;
+ 				regulator-initial-mode = <0>;
+@@ -173,8 +218,6 @@ vtt_ddr: ldo3 {
+ 
+ 			vdd_usb: ldo4 {
+ 				regulator-name = "vdd_usb";
+-				regulator-min-microvolt = <3300000>;
+-				regulator-max-microvolt = <3300000>;
+ 				interrupts = <IT_CURLIM_LDO4 0>;
+ 			};
+ 
+@@ -200,21 +243,21 @@ vref_ddr: vref_ddr {
+ 				regulator-over-current-protection;
+ 			};
+ 
+-			 bst_out: boost {
++			bst_out: boost {
+ 				regulator-name = "bst_out";
+ 				interrupts = <IT_OCP_BOOST 0>;
+-			 };
++			};
+ 
+ 			vbus_otg: pwr_sw1 {
+ 				regulator-name = "vbus_otg";
+ 				interrupts = <IT_OCP_OTG 0>;
+ 			 };
+ 
+-			 vbus_sw: pwr_sw2 {
++			vbus_sw: pwr_sw2 {
+ 				regulator-name = "vbus_sw";
+ 				interrupts = <IT_OCP_SWOUT 0>;
+-				regulator-active-discharge;
+-			 };
++				regulator-active-discharge = <1>;
++			};
+ 		};
+ 
+ 		onkey {
+@@ -222,6 +265,8 @@ onkey {
+ 			interrupts = <IT_PONKEY_F 0>, <IT_PONKEY_R 0>;
+ 			interrupt-names = "onkey-falling", "onkey-rising";
+ 			power-off-time-sec = <10>;
++
++			status = "okay";
+ 		};
+ 
+ 		watchdog {
+diff --git a/arch/arm/boot/dts/stm32mp157c-odyssey.dts b/arch/arm/boot/dts/stm32mp157c-odyssey.dts
+index 1397ac2a4..03bf6c156 100755
+--- a/arch/arm/boot/dts/stm32mp157c-odyssey.dts
++++ b/arch/arm/boot/dts/stm32mp157c-odyssey.dts
+@@ -22,6 +22,7 @@ aliases {
+ 	chosen {
+ 		stdout-path = "serial0:115200n8";
+ 	};
++
+ };
+ 
+ &ethernet0 {
+@@ -35,17 +36,45 @@ &ethernet0 {
+ 	assigned-clocks = <&rcc ETHCK_K>, <&rcc PLL4_P>;
+ 	assigned-clock-parents = <&rcc PLL4_P>;
+ 	assigned-clock-rates = <125000000>; /* Clock PLL4 to 750Mhz in ATF/U-Boot */
++	phy-reset-gpios = <&gpiog 0 GPIO_ACTIVE_LOW>;
+ 	st,eth-clk-sel;
+ 
+ 	mdio0 {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 		compatible = "snps,dwmac-mdio";
++
+ 		phy0: ethernet-phy@7 { /* KSZ9031RN */
+ 			reg = <7>;
+-			reset-gpios = <&gpiog 0 GPIO_ACTIVE_LOW>; /* ETH_RST# */
+-			reset-assert-us = <10000>;
+-			reset-deassert-us = <300>;
++
++			/*
++			 * These skews assume the STM32MP1 has no internal delay.
++			 *
++			 * All skews are offset since hardware skew values for the ksz9031
++			 * range from a negative skew to a positive skew.
++			 * See the micrel-ksz90x1.txt Documentation file for details.
++			 */
++			/* REG 0x0008, 5 bits per skew */
++			txc-skew-ps  = <1800>;/*  900ps */
++			rxc-skew-ps  = <1320>;/*  420ps */
++
++			/* REG 0x0004, 4 bits per skew */
++			txen-skew-ps = <420>;  /*   0ps */
++			rxdv-skew-ps = <420>; /*    0ps */
++
++			/* REG 0x0005, 4 bits per skew */
++			rxd0-skew-ps = <720>; /*  300ps */
++			rxd1-skew-ps = <780>; /*  360ps */
++			rxd2-skew-ps = <840>; /*  420ps */
++			rxd3-skew-ps = <900>; /*  480ps */
++
++			/* REG 0x0006, 4 bits per skew */
++			txd0-skew-ps = <0>;   /* -420ps */
++			txd1-skew-ps = <60>;  /* -360ps */
++			txd2-skew-ps = <120>; /* -300ps */
++			txd3-skew-ps = <180>; /* -240ps */
++
++			micrel,force-master;
+ 		};
+ 	};
+ };
+@@ -135,6 +164,39 @@ panel_in: endpoint {
+ 	};
+ };
+ 
++&usbh_ehci {
++	phys = <&usbphyc_port0>;
++	status = "okay";
++};
++
++&usbh_ohci{
++	status = "okay";
++	phys = <&usbphyc_port0>;
++};
++
++&usbotg_hs {
++    dr_mode = "otg";
++    pinctrl-0 = <&usbotg_hs_pins_a>;
++    pinctrl-names = "default";
++    phy-names = "usb2-phy";
++    phys = <&usbphyc_port1 0>;
++    vbus-supply = <&vbus_otg>;
++    status = "okay";
++};
++
++&usbphyc {
++	status = "okay";
++};
++
++&usbphyc_port0 {
++	phy-supply = <&vdd_usb>;
++	st,phy-tuning = <&usb_phy_tuning>;
++};
++
++&usbphyc_port1 {
++    phy-supply = <&vdd_usb>;
++    st,phy-tuning = <&usb_phy_tuning>;
++};
+ 
+ &sdmmc1 {
+ 	pinctrl-names = "default", "opendrain", "sleep";

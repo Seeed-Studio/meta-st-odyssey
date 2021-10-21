@@ -1,0 +1,158 @@
+diff --git a/arch/arm/dts/stm32mp157c-odyssey.dts b/arch/arm/dts/stm32mp157c-odyssey.dts
+index d3c605be..73bbd789 100644
+--- a/arch/arm/dts/stm32mp157c-odyssey.dts
++++ b/arch/arm/dts/stm32mp157c-odyssey.dts
+@@ -29,6 +29,13 @@
+ 			linux,default-trigger = "heartbeat";
+ 			default-state = "off";
+ 		};
++
++		ethrst {
++			label = "eth-rst";
++			gpios = <&gpiog  0  GPIO_ACTIVE_HIGH>;
++			linux,default-trigger = "eth-rst";
++			default-state = "on";
++		};
+ 	};
+ 
+ };
+@@ -75,13 +82,20 @@
+ 	phy-mode = "rgmii-id";
+ 	max-speed = <1000>;
+ 	phy-handle = <&phy0>;
++	st,eth_clk_sel;
+ 
+ 	mdio0 {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 		compatible = "snps,dwmac-mdio";
++		reset-active-low;
++
+ 		phy0: ethernet-phy@7 {
+ 			reg = <7>;
++
++			//reset-assert-us = <10000>;
++            //reset-deassert-us = <30000>;
++			reset-gpios = <&gpiog 0 GPIO_ACTIVE_LOW>;
+ 		};
+ 	};
+ };
+diff --git a/configs/stm32mp15_trusted_defconfig b/configs/stm32mp15_trusted_defconfig
+index c087457d..bbd73115 100755
+--- a/configs/stm32mp15_trusted_defconfig
++++ b/configs/stm32mp15_trusted_defconfig
+@@ -22,6 +22,7 @@ CONFIG_CMD_MEMINFO=y
+ CONFIG_CMD_MEMTEST=y
+ CONFIG_SYS_MEMTEST_START=0xc0000000
+ CONFIG_SYS_MEMTEST_END=0xc4000000
++CONFIG_NET_RANDOM_ETHADDR=y
+ CONFIG_CMD_ADC=y
+ CONFIG_CMD_CLK=y
+ CONFIG_CMD_DFU=y
+@@ -91,6 +92,8 @@ CONFIG_PHY_REALTEK=y
+ CONFIG_DM_ETH=y
+ CONFIG_DWC_ETH_QOS=y
+ CONFIG_PHY=y
++CONFIG_PHY_MICREL=y
++CONFIG_PHY_MICREL_KSZ90X1=y
+ CONFIG_PHY_STM32_USBPHYC=y
+ CONFIG_PINCONF=y
+ CONFIG_PINCTRL_STMFX=y
+diff --git a/drivers/net/dwc_eth_qos.c b/drivers/net/dwc_eth_qos.c
+index 810a2b95..b664d191 100644
+--- a/drivers/net/dwc_eth_qos.c
++++ b/drivers/net/dwc_eth_qos.c
+@@ -710,7 +710,7 @@ static int eqos_start_resets_tegra186(struct udevice *dev)
+ 		return ret;
+ 	}
+ 
+-	udelay(2);
++	mdelay(10);
+ 
+ 	ret = dm_gpio_set_value(&eqos->phy_reset_gpio, 0);
+ 	if (ret < 0) {
+@@ -781,18 +781,6 @@ static int eqos_stop_resets_tegra186(struct udevice *dev)
+ 
+ static int eqos_stop_resets_stm32(struct udevice *dev)
+ {
+-	struct eqos_priv *eqos = dev_get_priv(dev);
+-	int ret;
+-
+-	if (dm_gpio_is_valid(&eqos->phy_reset_gpio)) {
+-		ret = dm_gpio_set_value(&eqos->phy_reset_gpio, 1);
+-		if (ret < 0) {
+-			pr_err("dm_gpio_set_value(phy_reset, assert) failed: %d",
+-			       ret);
+-			return ret;
+-		}
+-	}
+-
+ 	return 0;
+ }
+ 
+@@ -1178,13 +1166,15 @@ static int eqos_start(struct udevice *dev)
+ 		goto err;
+ 	}
+ 
+-	ret = eqos->config->ops->eqos_start_resets(dev);
+-	if (ret < 0) {
+-		pr_err("eqos_start_resets() failed: %d", ret);
+-		goto err_stop_clks;
+-	}
++	if (!eqos->phy) {
++		ret = eqos->config->ops->eqos_start_resets(dev);
++		if (ret < 0) {
++			pr_err("eqos_start_resets() failed: %d", ret);
++			goto err_stop_clks;
++		}
+ 
+-	udelay(10);
++	//udelay(10);
++	}
+ 
+ 	eqos->reg_access_ok = true;
+ 
+@@ -1795,6 +1785,7 @@ err_free_clk_master_bus:
+ err_free_clk_slave_bus:
+ 	clk_free(&eqos->clk_slave_bus);
+ err_free_gpio_phy_reset:
++	pr_err("**** dm_gpio_free( phy_reset_gpio )\n");
+ 	dm_gpio_free(dev, &eqos->phy_reset_gpio);
+ err_free_reset_eqos:
+ 	reset_free(&eqos->reset_ctl);
+@@ -1862,9 +1853,7 @@ static int eqos_probe_resources_stm32(struct udevice *dev)
+ 		/* search "reset-gpios" in phy node */
+ 		ret = gpio_request_by_name_nodev(phandle_args.node,
+ 						 "reset-gpios", 0,
+-						 &eqos->phy_reset_gpio,
+-						 GPIOD_IS_OUT |
+-						 GPIOD_IS_OUT_ACTIVE);
++						 &eqos->phy_reset_gpio, GPIOD_IS_OUT);
+ 		if (ret)
+ 			pr_warn("gpio_request_by_name(phy reset) not provided %d",
+ 				ret);
+@@ -2017,6 +2006,12 @@ static int eqos_probe(struct udevice *dev)
+ 		goto err_remove_resources_core;
+ 	}
+ 
++	ret = eqos->config->ops->eqos_start_resets(dev);
++	if (ret < 0) {
++		pr_err("eqos_start_resets() failed: %d", ret);
++		goto err_remove_resources_tegra;
++	}
++
+ #ifdef CONFIG_DM_ETH_PHY
+ 	eqos->mii = eth_phy_get_mdio_bus(dev);
+ #endif
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 67789897..64c34a20 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -800,6 +800,7 @@ static struct phy_device *get_phy_device_by_mask(struct mii_dev *bus,
+ 	int i, devad_cnt;
+ 
+ 	devad_cnt = sizeof(devad)/sizeof(int);
++	mdelay(5);
+ 	phydev = search_for_existing_phy(bus, phy_mask, interface);
+ 	if (phydev)
+ 		return phydev;
