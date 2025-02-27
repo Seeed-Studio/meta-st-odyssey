@@ -1,0 +1,91 @@
+From 247fc5e0ce0ea58ee4313177f3d7cdd4d98b3a38 Mon Sep 17 00:00:00 2001
+From: mingzq <north_sea@qq.com>
+Date: Thu, 27 Feb 2025 09:27:40 +0000
+Subject: [PATCH 1/1] stm32mp157c-odyssey: supports usb host
+
+---
+ .../arm/boot/dts/stm32mp157c-odyssey-som.dtsi | 64 +++++++++++++++++++
+ 1 file changed, 64 insertions(+)
+
+diff --git a/arch/arm/boot/dts/stm32mp157c-odyssey-som.dtsi b/arch/arm/boot/dts/stm32mp157c-odyssey-som.dtsi
+index fc1d27c1ed..3cc95e3677 100644
+--- a/arch/arm/boot/dts/stm32mp157c-odyssey-som.dtsi
++++ b/arch/arm/boot/dts/stm32mp157c-odyssey-som.dtsi
+@@ -73,6 +73,24 @@ led-blue {
+ 			linux,default-trigger = "heartbeat";
+ 		};
+ 	};
++
++	usb_en1: usb-en1 {
++		compatible = "regulator-fixed";
++		regulator-name = "usb-en1";
++		gpio = <&gpioh 13 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++		regulator-always-on;
++	};
++
++	usb_en2: usb-en2 {
++		compatible = "regulator-fixed";
++		regulator-name = "usb-en2";
++		gpio = <&gpiof 8 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++		regulator-always-on;
++	};
+ };
+ 
+ &i2c2 {
+@@ -268,3 +286,49 @@ &cpu0{
+ &cpu1{
+        cpu-supply = <&vddcore>;
+ };
++
++&usbh_ehci {
++	status = "okay";
++	phys = <&usbphyc_port0>;
++};
++
++&usbh_ohci {
++	status = "okay";
++	phys = <&usbphyc_port0>;
++};
++
++&usbotg_hs {
++	status = "okay";
++	dr_mode = "host";
++	phy-names = "usb2-phy";
++	phys = <&usbphyc_port1 0>;
++	vbus-supply = <&vbus_otg>;
++};
++
++&usbphyc {
++	status = "okay";
++};
++
++&usbphyc_port0 {
++	phy-supply = <&vdd_usb>;
++	st,tune-hs-dc-level = <2>;
++	st,enable-fs-rftime-tuning;
++	st,enable-hs-rftime-reduction;
++	st,trim-hs-current = <15>;
++	st,trim-hs-impedance = <1>;
++	st,tune-squelch-level = <3>;
++	st,tune-hs-rx-offset = <2>;
++	st,no-lsfs-sc;
++};
++
++&usbphyc_port1 {
++	phy-supply = <&vdd_usb>;
++	st,tune-hs-dc-level = <2>;
++	st,enable-fs-rftime-tuning;
++	st,enable-hs-rftime-reduction;
++	st,trim-hs-current = <15>;
++	st,trim-hs-impedance = <1>;
++	st,tune-squelch-level = <3>;
++	st,tune-hs-rx-offset = <2>;
++	st,no-lsfs-sc;
++};
+-- 
+2.43.0
+
