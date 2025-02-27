@@ -1,0 +1,48 @@
+From 9c4950cf5e7b9118a993de98faf3f3642672f415 Mon Sep 17 00:00:00 2001
+From: mingzq <north_sea@qq.com>
+Date: Wed, 26 Feb 2025 08:54:48 +0000
+Subject: [PATCH 1/1] fix: change VCO from 594MHz to 750MHz for eth phy
+
+---
+ fdts/stm32mp157c-odyssey-som.dtsi | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/fdts/stm32mp157c-odyssey-som.dtsi b/fdts/stm32mp157c-odyssey-som.dtsi
+index 785a73ff0..2e1523a9f 100644
+--- a/fdts/stm32mp157c-odyssey-som.dtsi
++++ b/fdts/stm32mp157c-odyssey-som.dtsi
+@@ -274,9 +274,9 @@
+ 			frac = <0x1a04>;
+ 		};
+ 
+-		pll4_vco_594Mhz: pll4-vco-594Mhz {
++		pll4_vco_750Mhz: pll4-vco-750Mhz {
+ 			src = <CLK_PLL4_HSE>;
+-			divmn = <3 98>;
++			divmn = <3 124>;
+ 		};
+ 	};
+ 
+@@ -306,7 +306,7 @@
+ 		};
+ 	};
+ 
+-	/* VCO = 594.0 MHz => P = 99, Q = 74, R = 74 */
++	/* VCO = 750.0 MHz => P = 125, Q = 62.5, R = 62.5 */
+ 	pll4: st,pll@3 {
+ 		compatible = "st,stm32mp1-pll";
+ 		reg = <3>;
+@@ -314,8 +314,8 @@
+ 		st,pll = <&pll4_cfg1>;
+ 
+ 		pll4_cfg1: pll4_cfg1 {
+-			st,pll_vco = <&pll4_vco_594Mhz>;
+-			st,pll_div_pqr = <5 7 7>;
++			st,pll_vco = <&pll4_vco_750Mhz>;
++			st,pll_div_pqr = <5 11 11>;
+ 		};
+ 	};
+ };
+-- 
+2.43.0
+

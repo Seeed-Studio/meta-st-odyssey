@@ -1,0 +1,80 @@
+From d400691de6bc458b6cc1ed09c980c708fb1ee855 Mon Sep 17 00:00:00 2001
+From: mingzq <north_sea@qq.com>
+Date: Thu, 27 Feb 2025 03:42:21 +0000
+Subject: [PATCH 1/1] fix: change VCO from 594MHz to 750MHz for eth phy
+
+---
+ arch/arm/dts/stm32mp157c-odyssey-som-u-boot.dtsi |  6 +++---
+ arch/arm/dts/stm32mp157c-odyssey.dts             | 11 +++++++++--
+ configs/stm32mp15_defconfig                      |  4 ++++
+ 3 files changed, 16 insertions(+), 5 deletions(-)
+
+diff --git a/arch/arm/dts/stm32mp157c-odyssey-som-u-boot.dtsi b/arch/arm/dts/stm32mp157c-odyssey-som-u-boot.dtsi
+index 4ff848350de..eb7d2307722 100644
+--- a/arch/arm/dts/stm32mp157c-odyssey-som-u-boot.dtsi
++++ b/arch/arm/dts/stm32mp157c-odyssey-som-u-boot.dtsi
+@@ -63,7 +63,7 @@
+ 		CLK_CKPER_HSE
+ 		CLK_FMC_ACLK
+ 		CLK_QSPI_ACLK
+-		CLK_ETH_DISABLED
++		CLK_ETH_PLL4P
+ 		CLK_SDMMC12_PLL4P
+ 		CLK_DSI_DSIPLL
+ 		CLK_STGEN_HSE
+@@ -115,11 +115,11 @@
+ 		u-boot,dm-pre-reloc;
+ 	};
+ 
+-	/* VCO = 594.0 MHz => P = 99, Q = 74, R = 74 */
++	/* VCO = 750.0 MHz => P = 125, Q = 62.5, R = 62.5 */
+ 	pll4: st,pll@3 {
+ 		compatible = "st,stm32mp1-pll";
+ 		reg = <3>;
+-		cfg = < 3 98 5 7 7 PQR(1,1,1) >;
++		cfg = < 3 124 5 11 11 PQR(1,1,1) >;
+ 		u-boot,dm-pre-reloc;
+ 	};
+ };
+diff --git a/arch/arm/dts/stm32mp157c-odyssey.dts b/arch/arm/dts/stm32mp157c-odyssey.dts
+index 7f9596cb2bc..1c31aa9bdcf 100644
+--- a/arch/arm/dts/stm32mp157c-odyssey.dts
++++ b/arch/arm/dts/stm32mp157c-odyssey.dts
+@@ -99,13 +99,20 @@
+ 	phy-mode = "rgmii-id";
+ 	max-speed = <1000>;
+ 	phy-handle = <&phy0>;
++	st,eth-clk-sel;
++	phy-reset-gpios = <&gpiog 0 GPIO_ACTIVE_LOW>;
+ 
+ 	mdio0 {
++		status = "okay";
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 		compatible = "snps,dwmac-mdio";
+-		phy0: ethernet-phy@0 {
+-			reg = <0>;
++
++		phy0: ethernet-phy@7 {
++			reg = <7>;
++			reset-gpios = <&gpiog 0 GPIO_ACTIVE_LOW>;
++			reset-assert-us = <11000>;
++			reset-deassert-us = <1000>;
+ 		};
+ 	};
+ };
+diff --git a/configs/stm32mp15_defconfig b/configs/stm32mp15_defconfig
+index b3db57f27cc..9d3ed11599f 100644
+--- a/configs/stm32mp15_defconfig
++++ b/configs/stm32mp15_defconfig
+@@ -189,3 +189,7 @@ CONFIG_LMB_RESERVED_REGIONS=16
+ # CONFIG_TOOLS_MKEFICAPSULE is not set
+ # CONFIG_TOOLS_MKFWUMDATA is not set
+ # CONFIG_EFI_CAPSULE_ON_DISK_EARLY is not set
++
++CONFIG_NET_RANDOM_ETHADDR=y
++CONFIG_PHY_MICREL=y
++CONFIG_PHY_MICREL_KSZ90X1=y
+-- 
+2.43.0
+

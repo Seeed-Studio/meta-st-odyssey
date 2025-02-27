@@ -1,0 +1,143 @@
+From 79da160b0c1235c456b317da7b97ef37a26318a8 Mon Sep 17 00:00:00 2001
+From: mingzq <north_sea@qq.com>
+Date: Tue, 25 Feb 2025 06:32:25 +0000
+Subject: [PATCH 1/1] supports stm32mp157c-odyssey
+
+---
+ arch/arm/dts/stm32mp157c-odyssey-som.dtsi | 10 ++++++++-
+ arch/arm/dts/stm32mp157c-odyssey.dts      | 26 ++++++++++++++++++++++-
+ board/st/stm32mp1/stm32mp1.c              | 11 ++++++----
+ configs/stm32mp15_defconfig               | 10 +++++----
+ 4 files changed, 47 insertions(+), 10 deletions(-)
+
+diff --git a/arch/arm/dts/stm32mp157c-odyssey-som.dtsi b/arch/arm/dts/stm32mp157c-odyssey-som.dtsi
+index 1510a5b3644..205ab462324 100644
+--- a/arch/arm/dts/stm32mp157c-odyssey-som.dtsi
++++ b/arch/arm/dts/stm32mp157c-odyssey-som.dtsi
+@@ -16,7 +16,7 @@
+ / {
+ 
+ 	model = "Seeed Studio Odyssey-STM32MP157C SOM";
+-	compatible = "seeed,odyssey-stm32mp157c-som", "st,stm32mp157";
++	compatible = "seeed,stm32mp157c-odyssey-som", "st,stm32mp157";
+ 
+ 	memory@c0000000 {
+ 		device_type = "memory";
+@@ -369,3 +369,11 @@
+ 	vdda-supply = <&vdd>;
+ 	status = "okay";
+ };
++
++&cpu0{
++	cpu-supply = <&vddcore>;
++};
++
++&cpu1{
++	cpu-supply = <&vddcore>;
++};
+diff --git a/arch/arm/dts/stm32mp157c-odyssey.dts b/arch/arm/dts/stm32mp157c-odyssey.dts
+index 17bcf56f744..7f9596cb2bc 100644
+--- a/arch/arm/dts/stm32mp157c-odyssey.dts
++++ b/arch/arm/dts/stm32mp157c-odyssey.dts
+@@ -6,11 +6,12 @@
+ /dts-v1/;
+ 
+ #include "stm32mp157c-odyssey-som.dtsi"
++//#include "stm32mp157c-odyssey-scmi.dtsi"
+ 
+ / {
+ 
+ 	model = "Seeed Studio Odyssey-STM32MP157C Board";
+-	compatible = "seeed,odyssey-stm32mp157c", "st,stm32mp157";
++	compatible = "seeed,stm32mp157c-odyssey", "st,stm32mp157";
+ 
+ 	aliases {
+ 		ethernet0 = &ethernet0;
+@@ -31,6 +32,29 @@
+ 		};
+ 	};
+ 
++	firmware {
++		optee: optee {
++			compatible = "linaro,optee-tz";
++			method = "smc";
++		};
++
++		scmi: scmi {
++			compatible = "linaro,scmi-optee";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			linaro,optee-channel-id = <0>;
++
++			scmi_clk: protocol@14 {
++				reg = <0x14>;
++				#clock-cells = <1>;
++			};
++
++			scmi_reset: protocol@16 {
++				reg = <0x16>;
++				#reset-cells = <1>;
++			};
++		};
++	};
+ };
+ 
+ &adc {
+diff --git a/board/st/stm32mp1/stm32mp1.c b/board/st/stm32mp1/stm32mp1.c
+index 5a6a42c95ab..50000d97b1e 100644
+--- a/board/st/stm32mp1/stm32mp1.c
++++ b/board/st/stm32mp1/stm32mp1.c
+@@ -877,14 +877,17 @@ int board_late_init(void)
+ 		fdt_compat = ofnode_get_property(ofnode_root(), "compatible",
+ 						 &fdt_compat_len);
+ 		if (fdt_compat && fdt_compat_len) {
+-			if (strncmp(fdt_compat, "st,", 3) != 0) {
++			if ((strncmp(fdt_compat, "st,", 3) != 0) \
++				&& (strncmp(fdt_compat, "seeed,", 6) != 0)) {
+ 				env_set("board_name", fdt_compat);
+ 			} else {
+-				env_set("board_name", fdt_compat + 3);
++				char *board_name = strchr(fdt_compat, ',');
++				board_name++;
++				env_set("board_name", board_name);
+ 
+ 				buf_len = sizeof(dtb_name);
+-				strncpy(dtb_name, fdt_compat + 3, buf_len);
+-				buf_len -= strlen(fdt_compat + 3);
++				strncpy(dtb_name, board_name, buf_len);
++				buf_len -= strlen(board_name);
+ 				strncat(dtb_name, ".dtb", buf_len);
+ 				env_set("fdtfile", dtb_name);
+ 			}
+diff --git a/configs/stm32mp15_defconfig b/configs/stm32mp15_defconfig
+index 5f3fbac0023..b3db57f27cc 100644
+--- a/configs/stm32mp15_defconfig
++++ b/configs/stm32mp15_defconfig
+@@ -2,10 +2,11 @@ CONFIG_ARM=y
+ CONFIG_ARCH_STM32MP=y
+ CONFIG_TFABOOT=y
+ CONFIG_SYS_MALLOC_F_LEN=0x80000
++CONFIG_ENV_SIZE=0x40000
+ CONFIG_ENV_OFFSET=0x900000
+ CONFIG_ENV_SECT_SIZE=0x40000
+-CONFIG_DEFAULT_DEVICE_TREE="stm32mp157c-ev1"
+-CONFIG_SYS_PROMPT="STM32MP> "
++CONFIG_DEFAULT_DEVICE_TREE="stm32mp157c-odyssey"
++CONFIG_SYS_PROMPT="ODYSSEY> "
+ CONFIG_DDR_CACHEABLE_SIZE=0x8000000
+ CONFIG_CMD_STM32KEY=y
+ CONFIG_TARGET_ST_STM32MP15X=y
+@@ -183,7 +184,8 @@ CONFIG_EFI_SECURE_BOOT=y
+ # CONFIG_LMB_USE_MAX_REGIONS is not set
+ CONFIG_LMB_MEMORY_REGIONS=2
+ CONFIG_LMB_RESERVED_REGIONS=16
+-CONFIG_FWU_MULTI_BANK_UPDATE=y
+-CONFIG_FWU_MDATA_V2=y
++# CONFIG_FWU_MULTI_BANK_UPDATE is not set
++# CONFIG_FWU_MDATA_V2 is not set
+ # CONFIG_TOOLS_MKEFICAPSULE is not set
+ # CONFIG_TOOLS_MKFWUMDATA is not set
++# CONFIG_EFI_CAPSULE_ON_DISK_EARLY is not set
+-- 
+2.43.0
+
