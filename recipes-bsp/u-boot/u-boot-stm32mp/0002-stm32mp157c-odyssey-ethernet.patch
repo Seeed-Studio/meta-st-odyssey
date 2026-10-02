@@ -1,0 +1,108 @@
+From: meta-st-odyssey <build@local>
+Date: Tue, 22 Sep 2026 12:00:00 +0200
+Subject: [PATCH] stm32mp157c-odyssey: make Ethernet work in U-Boot
+
+- DTS: PHY is at MDIO address 7 (was 0); add phy-reset-gpios (PG0) and
+  st,eth-clk-sel, without which the 125 MHz RGMII clock is never routed to
+  the PHY and the DMA soft reset never completes; phy-mode "rgmii" as in the
+  kernel devicetree.
+- dwc_eth_qos: drive an optional phy-reset-gpios on the STM32 variant with a
+  long settle, the KSZ9031RN needs an active pulse before MDIO answers.
+- stm32mp15_defconfig: enable the Micrel KSZ90x1 PHY driver.
+
+Upstream-Status: Inappropriate [out-of-tree board]
+
+--- a/arch/arm/dts/stm32mp157c-odyssey.dts
++++ b/arch/arm/dts/stm32mp157c-odyssey.dts
+@@ -83,16 +83,18 @@
+ 	pinctrl-0 = <&ethernet0_rgmii_pins_a>;
+ 	pinctrl-1 = <&ethernet0_rgmii_sleep_pins_a>;
+ 	pinctrl-names = "default", "sleep";
+-	phy-mode = "rgmii-id";
++	phy-mode = "rgmii";
+ 	max-speed = <1000>;
+ 	phy-handle = <&phy0>;
++	phy-reset-gpios = <&gpiog 0 GPIO_ACTIVE_LOW>;
++	st,eth-clk-sel;
+ 
+ 	mdio0 {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 		compatible = "snps,dwmac-mdio";
+-		phy0: ethernet-phy@0 {
+-			reg = <0>;
++		phy0: ethernet-phy@7 { /* KSZ9031RN */
++			reg = <7>;
+ 		};
+ 	};
+ };
+--- a/drivers/net/dwc_eth_qos.c
++++ b/drivers/net/dwc_eth_qos.c
+@@ -1544,6 +1544,15 @@
+ 	}
+ #endif
+ 
++	/* Optional PHY reset GPIO; absent on most ST boards, so -ENOENT is not an error. */
++	ret = gpio_request_by_name(dev, "phy-reset-gpios", 0,
++				   &eqos->phy_reset_gpio,
++				   GPIOD_IS_OUT | GPIOD_IS_OUT_ACTIVE);
++	if (ret && ret != -ENOENT) {
++		pr_err("gpio_request_by_name(phy reset) failed: %d", ret);
++		goto err_free_clk_rx;
++	}
++
+ 	debug("%s: OK\n", __func__);
+ 	return 0;
+ 
+@@ -1595,11 +1604,34 @@
+ 	if (clk_valid(&eqos->clk_ck))
+ 		clk_free(&eqos->clk_ck);
+ #endif
++	if (dm_gpio_is_valid(&eqos->phy_reset_gpio))
++		dm_gpio_free(dev, &eqos->phy_reset_gpio);
+ 
+ 	debug("%s: OK\n", __func__);
+ 	return 0;
+ }
+ 
++/*
++ * The STM32 variant never drives a PHY reset line. Boards with "phy-reset-gpios"
++ * (Odyssey: KSZ9031RN) need an active pulse and a long settle before MDIO answers.
++ */
++static int eqos_start_resets_stm32(struct udevice *dev)
++{
++	struct eqos_priv *eqos = dev_get_priv(dev);
++
++	if (!dm_gpio_is_valid(&eqos->phy_reset_gpio))
++		return 0;
++
++	debug("%s(dev=%p):\n", __func__, dev);
++
++	dm_gpio_set_value(&eqos->phy_reset_gpio, 1);
++	mdelay(30);
++	dm_gpio_set_value(&eqos->phy_reset_gpio, 0);
++	mdelay(50);
++
++	return 0;
++}
++
+ static int eqos_probe(struct udevice *dev)
+ {
+ 	struct eqos_priv *eqos = dev_get_priv(dev);
+@@ -1752,7 +1784,7 @@
+ 	.eqos_probe_resources = eqos_probe_resources_stm32,
+ 	.eqos_remove_resources = eqos_remove_resources_stm32,
+ 	.eqos_stop_resets = eqos_null_ops,
+-	.eqos_start_resets = eqos_null_ops,
++	.eqos_start_resets = eqos_start_resets_stm32,
+ 	.eqos_stop_clks = eqos_stop_clks_stm32,
+ 	.eqos_start_clks = eqos_start_clks_stm32,
+ 	.eqos_calibrate_pads = eqos_null_ops,
+--- a/configs/stm32mp15_defconfig
++++ b/configs/stm32mp15_defconfig
+@@ -189,3 +189,5 @@
+ CONFIG_FWU_MDATA_V2=y
+ # CONFIG_TOOLS_MKEFICAPSULE is not set
+ # CONFIG_TOOLS_MKFWUMDATA is not set
++CONFIG_PHY_MICREL=y
++CONFIG_PHY_MICREL_KSZ90X1=y

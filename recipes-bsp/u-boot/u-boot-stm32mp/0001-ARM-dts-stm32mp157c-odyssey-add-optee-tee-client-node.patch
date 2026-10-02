@@ -1,0 +1,31 @@
+From: meta-st-odyssey <build@local>
+Date: Tue, 22 Sep 2026 12:00:00 +0200
+Subject: [PATCH] ARM: dts: stm32mp157c-odyssey: add OP-TEE TEE client node
+
+U-Boot's stm32mp_bsec driver only uses the OP-TEE PTA_BSEC path when it finds
+a "linaro,optee-tz" node; otherwise it falls back to raw SMC, which fails once
+OP-TEE owns BSEC ("stm32_smc: Failed to exec svc=82001003", no MAC address,
+"No ethernet found"). ST's boards get this node from their -scmi.dtsi overlays.
+
+Upstream-Status: Inappropriate [out-of-tree board]
+
+--- a/arch/arm/dts/stm32mp157c-odyssey.dts
++++ b/arch/arm/dts/stm32mp157c-odyssey.dts
+@@ -31,6 +31,17 @@
+ 		};
+ 	};
+ 
++	/* TEE client for OP-TEE's PTA_BSEC: without it BSEC (MAC address, board ID)
++	 * falls back to raw SMC, which fails once OP-TEE owns BSEC. ST's boards get
++	 * this node from their -scmi.dtsi overlays. */
++	firmware {
++		optee: optee {
++			compatible = "linaro,optee-tz";
++			method = "smc";
++			interrupt-parent = <&intc>;
++			interrupts = <GIC_PPI 15 (GIC_CPU_MASK_SIMPLE(2) | IRQ_TYPE_LEVEL_LOW)>;
++		};
++	};
+ };
+ 
+ &adc {

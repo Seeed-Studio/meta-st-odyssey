@@ -1,0 +1,47 @@
+From: meta-st-odyssey <build@local>
+Date: Tue, 22 Sep 2026 12:00:00 +0200
+Subject: [PATCH] ARM: dts: stm32mp157c-odyssey: Ethernet fixes
+
+- PHY reset at MAC level (snps,reset-gpio, 50 ms settle): mainline's per-PHY
+  300 us is too short for the KSZ9031RN, so MDIO never answers ("MDIO device
+  at address 7 is missing").
+- Drop assigned-clocks on ethernet0: ETHCK_K has a single hardcoded parent on
+  this kernel, the reparent can never succeed and is logged every boot.
+- phy-mode "rgmii" as in Seeed's factory devicetree; "rgmii-id" double
+  compensates the RGMII delays and leaves gigabit marginal.
+
+Upstream-Status: Inappropriate [out-of-tree board]
+
+--- a/arch/arm/boot/dts/st/stm32mp157c-odyssey.dts
++++ b/arch/arm/boot/dts/st/stm32mp157c-odyssey.dts
+@@ -34,23 +34,22 @@
+ 	pinctrl-0 = <&ethernet0_rgmii_pins_a>;
+ 	pinctrl-1 = <&ethernet0_rgmii_sleep_pins_a>;
+ 	pinctrl-names = "default", "sleep";
+-	phy-mode = "rgmii-id";
++	phy-mode = "rgmii";
+ 	max-speed = <1000>;
+ 	phy-handle = <&phy0>;
+-	assigned-clocks = <&rcc ETHCK_K>, <&rcc PLL4_P>;
+-	assigned-clock-parents = <&rcc PLL4_P>;
+-	assigned-clock-rates = <125000000>; /* Clock PLL4 to 750Mhz in ATF/U-Boot */
+ 	st,eth-clk-sel;
+ 
+-	mdio {
++	snps,reset-gpio = <&gpiog 0 GPIO_ACTIVE_LOW>;
++	snps,reset-active-low;
++	snps,reset-delays-us = <0 30000 50000>;
++
++	mdio0 {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 		compatible = "snps,dwmac-mdio";
++
+ 		phy0: ethernet-phy@7 { /* KSZ9031RN */
+ 			reg = <7>;
+-			reset-gpios = <&gpiog 0 GPIO_ACTIVE_LOW>; /* ETH_RST# */
+-			reset-assert-us = <10000>;
+-			reset-deassert-us = <300>;
+ 		};
+ 	};
+ };

@@ -1,0 +1,109 @@
+From: meta-st-odyssey <build@local>
+Date: Tue, 22 Sep 2026 12:00:00 +0200
+Subject: [PATCH] ARM: dts: stm32mp157c-odyssey: enable USB host
+
+This board's include chain never pulls in stm32mp15xx-dkx.dtsi, which is
+where ST's DK boards get their USB setup. Enable usbphyc, EHCI/OHCI and the
+OTG controller in host mode, add the two USB-A VBUS switch GPIOs, wire
+vdd_usb as the PHY/PWR supply (otherwise it is switched off as unused ~30 s
+after boot and the ports go dead) and apply the ST PHY tuning values from
+Seeed's original 6.1 patch.
+
+Upstream-Status: Inappropriate [out-of-tree board]
+
+--- a/arch/arm/boot/dts/st/stm32mp157c-odyssey.dts
++++ b/arch/arm/boot/dts/st/stm32mp157c-odyssey.dts
+@@ -21,6 +21,24 @@
+ 	chosen {
+ 		stdout-path = "serial0:115200n8";
+ 	};
++
++	usb_en1: usb-en1 {
++		compatible = "regulator-fixed";
++		regulator-name = "usb-en1";
++		gpio = <&gpioh 13 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++		regulator-always-on;
++	};
++
++	usb_en2: usb-en2 {
++		compatible = "regulator-fixed";
++		regulator-name = "usb-en2";
++		gpio = <&gpiof 8 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++		regulator-always-on;
++	};
+ };
+ 
+ &dcmi {
+@@ -65,6 +83,63 @@
+ 	/delete-property/dma-names;
+ };
+ 
++/*
++ * USB host: this board's include chain never pulls in stm32mp15xx-dkx.dtsi, so the
++ * PHY, controllers and their supplies all have to be enabled here. Without the
++ * vdd_usb supply the regulator core switches it off as unused ~30s after boot.
++ */
++&usbphyc {
++	status = "okay";
++};
++
++&usbh_ehci {
++	status = "okay";
++	phys = <&usbphyc_port0>;
++};
++
++&usbh_ohci {
++	status = "okay";
++	phys = <&usbphyc_port0>;
++};
++
++&usbotg_hs {
++	status = "okay";
++	dr_mode = "host";
++	phy-names = "usb2-phy";
++	phys = <&usbphyc_port1 0>;
++	vbus-supply = <&vbus_otg>;
++	/delete-node/ port;
++};
++
++&pwr_regulators {
++	vdd-supply = <&vdd>;
++	vdd_3v3_usbfs-supply = <&vdd_usb>;
++};
++
++&usbphyc_port0 {
++	phy-supply = <&vdd_usb>;
++	st,tune-hs-dc-level = <2>;
++	st,enable-fs-rftime-tuning;
++	st,enable-hs-rftime-reduction;
++	st,trim-hs-current = <15>;
++	st,trim-hs-impedance = <1>;
++	st,tune-squelch-level = <3>;
++	st,tune-hs-rx-offset = <2>;
++	st,no-lsfs-sc;
++};
++
++&usbphyc_port1 {
++	phy-supply = <&vdd_usb>;
++	st,tune-hs-dc-level = <2>;
++	st,enable-fs-rftime-tuning;
++	st,enable-hs-rftime-reduction;
++	st,trim-hs-current = <15>;
++	st,trim-hs-impedance = <1>;
++	st,tune-squelch-level = <3>;
++	st,tune-hs-rx-offset = <2>;
++	st,no-lsfs-sc;
++};
++
+ &sdmmc1 {
+ 	pinctrl-names = "default", "opendrain", "sleep";
+ 	pinctrl-0 = <&sdmmc1_b4_pins_a>;
+@@ -85,4 +160,3 @@
+ 	/delete-property/dma-names;
+ 	status = "okay";
+ };
+-

@@ -1,0 +1,6 @@
+serverip=@SERVERIP@
+ipaddr=@IPADDR@
+netmask=@NETMASK@
+nfsroot=@NFSROOT@
+netboot=tftpboot 0xc2000000 zImage; tftpboot 0xc6000000 stm32mp157c-odyssey.dtb; setenv bootargs console=ttySTM0,115200 root=/dev/nfs ip=${ipaddr}:${serverip}:${serverip}:${netmask}:odyssey:eth0:off nfsroot=${serverip}:${nfsroot},vers=3,tcp rw; bootz 0xc2000000 - 0xc6000000
+bootcmd=run netboot
